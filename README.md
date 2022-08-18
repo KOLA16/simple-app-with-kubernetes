@@ -1,1 +1,1 @@
-# kubernetes-simple-app
+# simple-app-with-kubernetes
