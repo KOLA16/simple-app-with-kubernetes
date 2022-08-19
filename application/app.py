@@ -61,3 +61,7 @@ def interact():
             pool.closeall()
 
     return "<p>INDEX</p>"
+
+
+if __name__ == '__main__':
+    app.run()
