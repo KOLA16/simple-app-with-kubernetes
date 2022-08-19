@@ -24,7 +24,7 @@ def get_pools_and_connections(): # add return type
         threaded_pool = ThreadedConnectionPool(
             minconn=1,
             maxconn=10,
-            host='localhost',
+            host='leader-followers-postgres-db-0.leader-followers-postgres-db-service.default.svc.cluster.local', # podname-i.servername.namespace.svc.cluster.local
             database=DB_NAME,
             user=DB_USER,
             password=DB_PASSWORD,
@@ -61,6 +61,16 @@ def interact():
             pool.closeall()
 
     return "<p>INDEX</p>"
+
+
+@app.route('/health/check', methods=['GET'])
+def health_check():
+    return {'healthy': True}, 200
+
+
+@app.route('/readiness/check', methods=['GET'])
+def readiness_check():
+    return {'ready': True}, 200
 
 
 if __name__ == '__main__':
