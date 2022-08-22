@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
       - name: leader-followers-app
-        image: igorkkolasa/kuberneteslearning:app
+        image: igorkkolasa/kuberneteslearning:app5
         ports:
         - containerPort: 80
         livenessProbe:
