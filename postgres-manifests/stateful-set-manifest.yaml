@@ -1,0 +1,44 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: leader-followers-postgres-db
+spec:
+  serviceName: leader-followers-postgres-db-service
+  selector:
+    matchLabels:
+      app: postgres
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: postgres # Pods created by the StatefulSet will have the app=postgres label
+    spec:
+      containers:
+        - name: leader-followers-postgres-db
+          image: postgres:latest
+          volumeMounts:
+            - name: leader-followers-db
+              mountPath: /var/lib/postgresql/data # The container inside this pod will mount the pvc volume at this path
+              subPath: postgres
+          readinessProbe:
+            exec:
+              command:
+              - pg_isready
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          env:                        # Variables required by postgres image; defining credentials to access our database
+            - name: POSTGRES_PASSWORD
+              value: password         # Change it to be not visible
+            - name: POSTGRES_USER
+              value: postgres-user
+            - name: POSTGRES_DB
+              value: mydb
+  volumeClaimTemplates:
+    - metadata:
+        name: leader-followers-db
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: postgres-storage-class
+        resources:
+          requests:
+            storage: 200Mi

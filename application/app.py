@@ -68,6 +68,17 @@ def interact():
             return flask.jsonify({'error': 'Read failed'}), 500
 
 
+@app.route('/health/check', methods=['GET'])
+def health_check():
+    return {'healthy': True}, 200
+
+
+@app.route('/readiness/check', methods=['GET'])
+def readiness_check():
+    # TODO: Implement real readiness check instead of the current dummy function.
+    return {'ready': True}, 200
+
+
 def write_to_database(command, variables):
     pool, conn = get_pools_and_connections()
     was_successful = True
@@ -130,16 +141,5 @@ def read_personal_details():
     return read_from_database(command)
 
 
-@app.route('/health/check', methods=['GET'])
-def health_check():
-    return {'healthy': True}, 200
-
-
-@app.route('/readiness/check', methods=['GET'])
-def readiness_check():
-    # TODO: Implement real readiness check instead of the current dummy function.
-    return {'ready': True}, 200
-
-
 if __name__ == '__main__':
-    app.run()
+    app.run(host='0.0.0.0', port='80')
