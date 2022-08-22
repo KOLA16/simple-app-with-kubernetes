@@ -10,7 +10,6 @@ DB_NAME = os.environ.get('DB_NAME')
 DB_USER = os.environ.get('DB_USER')
 DB_PASSWORD = os.environ.get('DB_PASSWORD')
 DB_PORT = os.environ.get('DB_PORT')
-
 DB_TABLE_NAME = 'people'
 
 app = flask.Flask(__name__)
@@ -61,8 +60,7 @@ def interact():
     elif flask.request.method == 'GET':
         values, was_successful = read_personal_details()
         if was_successful:
-            for row in values:
-                logger.info(row)
+            logger.info(values)
             return flask.jsonify({'read': 'successful'}), 200
         else:
             return flask.jsonify({'error': 'Read failed'}), 500
@@ -86,6 +84,7 @@ def write_to_database(command, variables):
         cur = conn.cursor()
         cur.execute(command, variables)
         logger.info('Successful write attempt.')
+        conn.commit()
 
         cur.close()
     except Exception as err:
@@ -106,7 +105,7 @@ def read_from_database(command):
         cur = conn.cursor()
         values = []
         cur.execute(command)
-        values.append(cur.fetchmany())
+        values.append(cur.fetchall())
         logger.info('Successful read attempt.')
 
         cur.close()
@@ -123,12 +122,13 @@ def read_from_database(command):
 
 def create_table():
     command = f"""
-    CREATE IF NOT EXISTS {DB_TABLE_NAME} (
+    CREATE TABLE IF NOT EXISTS {DB_TABLE_NAME} (
         name TEXT PRIMARY KEY NOT NULL,
         age integer NOT NULL
     );
     """
-    return write_to_database(command)
+    variables = []
+    return write_to_database(command, variables)
 
 
 def add_new_person_to_table(name, age):
@@ -142,4 +142,4 @@ def read_personal_details():
 
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=8080)
+    app.run(host='0.0.0.0', port=80)
