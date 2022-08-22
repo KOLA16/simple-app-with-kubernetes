@@ -1,22 +1,25 @@
 import os
+import json
 import logging
+import flask
 import psycopg2
 
-from flask import Flask
 from psycopg2.pool import ThreadedConnectionPool
 
 DB_NAME = os.environ.get('DB_NAME')
-DB_TABLE_NAME = os.environ.get('DB_TABLE_NAME')
 DB_USER = os.environ.get('DB_USER')
 DB_PASSWORD = os.environ.get('DB_PASSWORD')
 DB_PORT = os.environ.get('DB_PORT')
 
-app = Flask(__name__)
+DB_TABLE_NAME = 'people'
+
+app = flask.Flask(__name__)
 logger = logging.getLogger(__name__)
 logging.basicConfig(format='%(asctime)s %(message)s', level=logging.INFO)
 
 
-def get_pools_and_connections(): # add return type
+def get_pools_and_connections():
+    # TODO: Modify to return a list of pools and list of connections
 
     threaded_pool = None
     conn = None
@@ -24,7 +27,7 @@ def get_pools_and_connections(): # add return type
         threaded_pool = ThreadedConnectionPool(
             minconn=1,
             maxconn=10,
-            host='leader-followers-postgres-db-0.leader-followers-postgres-db-service.default.svc.cluster.local', # podname-i.servername.namespace.svc.cluster.local
+            host='leader-followers-postgres-db-0.leader-followers-postgres-db-service.default.svc.cluster.local', # podname-i.dbservicename.namespace.svc.cluster.local
             database=DB_NAME,
             user=DB_USER,
             password=DB_PASSWORD,
@@ -43,24 +46,88 @@ def get_pools_and_connections(): # add return type
 
 @app.route('/api', methods=['GET', 'PUT'])
 def interact():
+    table_creation_successful = create_table()
+    if not table_creation_successful:
+        return flask.jsonify({'create-table': 'FAILED'}), 500
+    if flask.request.method == 'PUT':
+        data = json.loads(flask.request.data)
+        name = data.get('name')
+        age = data.get('age')
+        was_successful = add_new_person_to_table(name, age)
+        if was_successful:
+            return flask.jsonify({'write': 'successful'}), 200
+        else:
+            return flask.jsonify({'error': 'Write failed', 'name': name, 'age': age}), 500
+    elif flask.request.method == 'GET':
+        values, was_successful = read_personal_details()
+        if was_successful:
+            for row in values:
+                logger.info(row)
+            return flask.jsonify({'read': 'successful'}), 200
+        else:
+            return flask.jsonify({'error': 'Read failed'}), 500
+
+
+def write_to_database(command, variables):
     pool, conn = get_pools_and_connections()
+    was_successful = True
     try:
         cur = conn.cursor()
-        cur.execute(f'SELECT * FROM {DB_TABLE_NAME}')
-        records = cur.fetchmany(2)
-
-        for row in records:
-            logger.info(row)
+        cur.execute(command, variables)
+        logger.info('Successful write attempt.')
 
         cur.close()
-    except:
-        logger.info('Query execution error')
+    except Exception as err:
+        logger.info(f'Query execution error: {err}')
+        was_successful = False
     finally:
         pool.putconn(conn)
         if pool:
             pool.closeall()
 
-    return "<p>INDEX</p>"
+    return was_successful
+
+
+def read_from_database(command):
+    pool, conn = get_pools_and_connections()
+    was_successful = True
+    try:
+        cur = conn.cursor()
+        values = []
+        cur.execute(command)
+        values.append(cur.fetchmany())
+        logger.info('Successful read attempt.')
+
+        cur.close()
+    except Exception as err:
+        logger.info(f'Query execution error: {err}')
+        was_successful = False
+    finally:
+        pool.putconn(conn)
+        if pool:
+            pool.closeall()
+
+    return values, was_successful
+
+
+def create_table():
+    command = f"""
+    CREATE IF NOT EXISTS {DB_TABLE_NAME} (
+        name TEXT PRIMARY KEY NOT NULL,
+        age integer NOT NULL
+    );
+    """
+    return write_to_database(command)
+
+
+def add_new_person_to_table(name, age):
+    command = f"INSERT INTO {DB_TABLE_NAME} (name, age) VALUES (%s, %s)"
+    return write_to_database(command, (name, age))
+
+
+def read_personal_details():
+    command = f"SELECT * FROM {DB_TABLE_NAME}"
+    return read_from_database(command)
 
 
 @app.route('/health/check', methods=['GET'])
@@ -70,6 +137,7 @@ def health_check():
 
 @app.route('/readiness/check', methods=['GET'])
 def readiness_check():
+    # TODO: Implement real readiness check instead of the current dummy function.
     return {'ready': True}, 200
 
 
